@@ -12,19 +12,17 @@ from configparser import RawConfigParser
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-EM_STORE = "./batches/map.pkl"
-
 app = Flask(__name__)
 CORS(app)
-
 
 class StorageType(Enum):
     Local = 1
     S3 = 2
 
+ROOT = "/sata/mtriage" # TWEAK ME
 
-ROOT = "/sata/mtriage"
 STORAGE_TYPE = StorageType.Local
+EM_STORE = "./batches/map.pkl"
 # TODO: pass as CLI args
 
 # ROOT = "lk-iceland-personal"

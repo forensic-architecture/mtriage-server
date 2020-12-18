@@ -11,10 +11,10 @@ See [mtriage-viewer](https://github.com/forensic-architecture/mtriage-viewer)
 for a detailed example of how to consume mtriage-server's endpoints.
 
 ## Run 
+First tweak the global var `ROOT` in app.py to point to your folder of local
+batches.
 ```
-cd server
-poetry install
-poetry shell
-export FLASK_ENV=development
+conda env create -f environment.yml 
+conda activate mtriage-server
 python app.py
 ```
