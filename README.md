@@ -1,4 +1,4 @@
-# mtriage-viewer
+# mtriage-server
 
 #### note: pre-alpha development, not ready for use. Everything will break!
 
