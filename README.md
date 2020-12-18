@@ -16,5 +16,5 @@ batches.
 ```
 conda env create -f environment.yml 
 conda activate mtriage-server
-python app.py
+flask run
 ```

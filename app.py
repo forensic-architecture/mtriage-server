@@ -15,18 +15,20 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
+
 class StorageType(Enum):
     Local = 1
     S3 = 2
 
-ROOT = "/sata/mtriage" # TWEAK ME
 
+ROOT = "/sata/mtriage"  # TWEAK ME
 STORAGE_TYPE = StorageType.Local
-EM_STORE = "./batches/map.pkl"
-# TODO: pass as CLI args
 
+# TODO: pass as CLI args
 # ROOT = "lk-iceland-personal"
 # STORAGE_TYPE = StorageType.S3
+
+EM_STORE = "./batches/map.pkl"
 
 
 def read_etype(local_fp: Path) -> str:
@@ -148,7 +150,8 @@ class S3Batch(Batch):
 
     @staticmethod
     def attrs():
-        return [Batch.attrs(), "root", "ranking"]
+        return Batch.attrs() + ["ranking"]
+
 
 def save_map(mp):
     with open(EM_STORE, "wb") as fp:
@@ -161,9 +164,10 @@ def load_map():
 
     if len(raw) > 0:
         # NB: reconstructs class and its init args from the file on disk
+
         batches = [
             (
-                globals()[typ], # constructor, e.g. LocalBatch
+                globals()[typ],  # constructor, e.g. LocalBatch
                 {k: dct[k] for k in globals()[typ].attrs()},
             )
             for (typ, dct) in raw
@@ -171,8 +175,6 @@ def load_map():
 
         return {"batches": [Batch(**args) for (Batch, args) in batches]}
     return {"batches": []}
-
-
 
 
 class Local:
@@ -304,12 +306,14 @@ def batch_attribute():
     except:
         return jsonify(None)
 
+
 @app.route("/")
 def fallback_route():
     return jsonify({"api": "v0.1"})
 
+
 if __name__ == "__main__":
     mp = index(ROOT, STORAGE_TYPE)
-    if len(mp['batches']) > 0:
+    if len(mp["batches"]) > 0:
         save_map(mp)
     app.run(host="0.0.0.0")
