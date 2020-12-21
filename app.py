@@ -312,7 +312,6 @@ def batch_attribute():
         return jsonify([x.get(attr) for x in mp["batches"]])
     try:
         stripped_q = q.strip("/")
-        import pdb; pdb.set_trace()
         batch = next((b for b in mp["batches"] if b.query.strip("/") == stripped_q))
         return jsonify(batch.get(attr))
     except:
