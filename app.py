@@ -67,8 +67,18 @@ class Batch(ABC):
 
 
 class LocalBatch(Batch):
+    def __init__(self, query, etype, root, elements=None):
+        super().__init__(query, etype, root, elements)
+        self.elements = self.index_elements()
+
     def index_elements(self):
-        return [x for x in self.root.glob("**/*") if x.is_dir()]
+        els = [x for x in self.root.glob("**/*") if x.is_dir()]
+
+        if any(re.match(".*\_\_RANKING", str(line.name)) for line in els):
+            print('setting ranking...')
+            self.ranking = self.unpack_element(Path(self.root/"__RANKING"))["media"]["rankings.json"]
+
+        return els
 
     @staticmethod
     def unpack_element(pth: Path, suffixes: List[str] = [".json"]) -> dict:
@@ -301,7 +311,9 @@ def batch_attribute():
     if q is None:
         return jsonify([x.get(attr) for x in mp["batches"]])
     try:
-        batch = next((b for b in mp["batches"] if b.query.strip("/") == q.strip("/")))
+        stripped_q = q.strip("/")
+        import pdb; pdb.set_trace()
+        batch = next((b for b in mp["batches"] if b.query.strip("/") == stripped_q))
         return jsonify(batch.get(attr))
     except:
         return jsonify(None)
