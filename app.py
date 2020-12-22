@@ -28,19 +28,20 @@ STORAGE_TYPE = StorageType.Local
 # ROOT = "lk-iceland-personal"
 # STORAGE_TYPE = StorageType.S3
 
-EM_STORE = "./batches/map.pkl"
+EM_STORE = "./map.pkl"
 
 
-def read_etype(local_fp: Path) -> str:
-    cfgParser = RawConfigParser()
-    cfgParser.read(local_fp)
-    return cfgParser.get("etype", "etype")
+def read_json(local_fp: Path) -> dict:
+    with open(local_fp, 'r') as f:
+        data = json.load(f)
+    return data
 
 
 class Batch(ABC):
-    def __init__(self, query, etype, root, elements=None):
+    def __init__(self, query, etype, config, root, elements=None):
         self.query = query
         self.etype = etype
+        self.config = config
         self.root = root
         if elements is not None:
             self.elements = elements
@@ -51,6 +52,7 @@ class Batch(ABC):
         return {
             "query": self.query,
             "elements": [str(Path(x).name) for x in self.elements],
+            "config": self.config,
             "etype": self.etype,
         }
 
@@ -63,22 +65,16 @@ class Batch(ABC):
 
     @staticmethod
     def attrs():
-        return ["query", "etype", "elements", "root"]
+        return ["query", "etype", "config", "elements", "root"]
 
 
 class LocalBatch(Batch):
-    def __init__(self, query, etype, root, elements=None):
-        super().__init__(query, etype, root, elements)
+    def __init__(self, query, etype, config, root, elements=None):
+        super().__init__(query, etype, config, root, elements)
         self.elements = self.index_elements()
 
     def index_elements(self):
-        els = [x for x in self.root.glob("**/*") if x.is_dir()]
-
-        if any(re.match(".*\_\_RANKING", str(line.name)) for line in els):
-            print('setting ranking...')
-            self.ranking = self.unpack_element(Path(self.root/"__RANKING"))["media"]["rankings.json"]
-
-        return els
+        return [x for x in self.root.glob("**/*") if x.is_dir()]
 
     @staticmethod
     def unpack_element(pth: Path, suffixes: List[str] = [".json"]) -> dict:
@@ -104,20 +100,11 @@ class LocalBatch(Batch):
 
 
 class S3Batch(Batch):
-    def __init__(self, query, etype, root, ranking={}, elements=None):
-        self.ranking = ranking  # optionally set in `index_elements`
-        super().__init__(query, etype, root, elements=elements)
-
     def index_elements(self):
         response = boto3.client("s3").list_objects_v2(
             Bucket=self.root, Prefix=self.query, Delimiter="/"
         )
-        els = [x.get("Prefix") for x in response.get("CommonPrefixes")]
-
-        if any(re.match(".*\_\_RANKING", line) for line in els):
-            self.ranking = self.unpack_element("__RANKING")["media"]["rankings.json"]
-
-        return els
+        return [x.get("Prefix") for x in response.get("CommonPrefixes")]
 
     def unpack_element(self, el: str, suffixes: List[str] = [".json"]) -> dict:
         prefix = el if el.startswith(self.query) else f"{self.query}{el}"
@@ -147,20 +134,13 @@ class S3Batch(Batch):
             return None
         return self.unpack_element(matching[0])
 
-    def get_elements(self, page=0, limit=10, rank_by=None):
+    def get_elements(self, page=0, limit=10):
         start_idx = page * limit
         end_idx = start_idx + (limit - 1)
 
         els_to_give = self.elements[start_idx:end_idx]
-        if rank_by is not None and rank_by in self.ranking:
-            rank = self.ranking[rank_by]
-            els_to_give = [el for el in rank[start_idx:end_idx]]
 
         return [self.unpack_element(el) for el in els_to_give]
-
-    @staticmethod
-    def attrs():
-        return Batch.attrs() + ["ranking"]
 
 
 def save_map(mp):
@@ -195,8 +175,8 @@ class Local:
             for d in dirs:
                 absp = Path(root) / d
                 if (absp / ".mtbatch").is_file():
-                    etype = read_etype(absp / ".mtbatch")
-                    batches.append(LocalBatch(d, etype, absp))
+                    attrs = read_json(absp / ".mtbatch")
+                    batches.append(LocalBatch(d, attrs.get("etype"), attrs.get("config"), absp))
         return batches
 
 
@@ -224,8 +204,8 @@ class S3:
         for fold in valid_folders:
             local_fp = mtbatches_dir / fold.replace("/", "_")
             bucket.download_file(f"{fold}.mtbatch", str(local_fp))
-            etype = read_etype(local_fp)
-            batches.append(S3Batch(fold, etype, root))
+            attrs = read_json(local_fp)
+            batches.append(S3Batch(fold, attrs.get("etype"), attrs.get("config"), root))
 
         return batches
 
@@ -280,15 +260,11 @@ def batch():
         arg_page = request.args.get("page")
         arg_page = 0 if arg_page is None else int(arg_page)
 
-        rank_by = request.args.get("rank_by")
-        if rank_by is None:
-            rank_by = "tank"
-
         if arg_element is not None:
             return jsonify(batch.get_element(arg_element))
 
         return jsonify(
-            batch.get_elements(page=arg_page, limit=arg_limit, rank_by=rank_by)
+            batch.get_elements(page=arg_page, limit=arg_limit)
         )
     else:  # POST
         data = request.json
