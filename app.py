@@ -251,6 +251,8 @@ def batch():
 
     if request.method == "GET":
         arg_query = request.args.get("q")
+        if arg_query is None: return jsonify(None)
+
         batch = batch_from_query(batches, arg_query)
         arg_element = request.args.get("el")
 
@@ -273,26 +275,17 @@ def batch():
         batch = batch_from_query(batches, q)
         return jsonify([batch.get_element(el) for el in elements])
 
-
-@app.route("/batch_attribute")
+# HACK: so that the ranking URL still works.
+@app.route("/batch_attribute", methods=["GET"])
 def batch_attribute():
-    """
-    Get an attribute on all batches, or a single batch.
-    Specify the name of the attribute with `a`.
-    Specify the particular batch with `batch` (if blank will return attributes for all batches).
-    """
-    mp = load_map()
-    q = request.args.get("q")
-    attr = request.args.get("a")
-    if q is None:
-        return jsonify([x.get(attr) for x in mp["batches"]])
-    try:
-        stripped_q = q.strip("/")
-        batch = next((b for b in mp["batches"] if b.query.strip("/") == stripped_q))
-        return jsonify(batch.get(attr))
-    except:
-        return jsonify(None)
+    if request.args.get("a") == "ranking":
+        q = request.args.get("q")
+        mp = load_map()
+        batches = mp["batches"]
+        batch = batch_from_query(batches, arg_query)
+        return(jsonify(batch.get_element("__RANKING")))
 
+    return jsonify(None)
 
 @app.route("/")
 def fallback_route():
