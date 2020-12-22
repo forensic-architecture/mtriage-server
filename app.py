@@ -282,8 +282,8 @@ def batch_attribute():
         q = request.args.get("q")
         mp = load_map()
         batches = mp["batches"]
-        batch = batch_from_query(batches, arg_query)
-        return(jsonify(batch.get_element("__RANKING")))
+        batch = batch_from_query(batches, q)
+        return(jsonify(batch.get_element("__META")["media"]["rankings.json"]))
 
     return jsonify(None)
 
